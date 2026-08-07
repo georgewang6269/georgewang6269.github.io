@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniTheorem — Math Solver & Theorem Studio | Made by George Wang Charlotte NC</title>
+  <meta name="description" content="Calculate triangle area using Heron's formula, solve math problems by photo using Google AI, and explore step-by-step guides on any math theorem. Made by George Wang Charlotte NC.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- KaTeX for crisp LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Tesseract.js for OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Ambient Glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- Navigation Header -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="#" class="brand-logo">
+        <div class="logo-icon">
+          <i data-lucide="sparkles"></i>
+        </div>
+        <div class="brand-text-group">
+          <span class="brand-name">Omni<span class="highlight">Theorem</span></span>
+          <span class="creator-sub">Made by George Wang Charlotte NC</span>
+        </div>
+      </a>
+      
+      <nav class="nav-links">
+        <a href="#heron-section" class="nav-link active">Heron's Formula</a>
+        <a href="#snap-section" class="nav-link">Snap &amp; Solve 📸</a>
+        <a href="#assistant-section" class="nav-link">Theorem Assistant</a>
+        <a href="#library-section" class="nav-link">Theorem Library</a>
+        <a href="#tetris-section" class="nav-link">🎮 Tetris</a>
+      </nav>
+
+      <div class="header-actions">
+        <span class="status-indicator"><span class="blink-dot"></span> STUDIO ACTIVE</span>
+        <a href="#snap-section" class="btn btn-primary btn-sm">
+          <i data-lucide="camera"></i>
+          <span>Snap Problem</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section">
+
+      <div class="hero-content">
+        <div class="hero-badge">
+          <i data-lucide="sun"></i>
+          <span>OmniTheorem Math Studio // Made by George Wang Charlotte NC</span>
+        </div>
+        
+        <h1 class="hero-title">
+          Homework is more fun when<br><span class="gradient-text">you know the shortcuts! 🌴</span>
+        </h1>
+        
+        <p class="hero-description">
+          Solve triangles with <strong>Heron's Formula</strong>, snap a photo of any math problem and get instant answers with <strong>Google AI</strong>, or explore easy step-by-step theorem guides. Learning made easy! 📐✏️
+        </p>
+
+        <!-- Search Bar -->
+        <div class="hero-search-wrapper">
+          <div class="search-box">
+            <span class="terminal-prompt"><i data-lucide="search" style="width: 20px; height: 20px; color: var(--accent-cyan);"></i></span>
+            <input type="text" id="theorem-search-input" placeholder='Search: "Pythagorean theorem" or "Law of Sines"...' autocomplete="off">
+            <button id="theorem-search-btn" class="btn btn-primary">
+              <span>Search</span>
+              <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+
+          <div class="quick-prompts">
+            <span class="prompt-label">Popular Topics:</span>
+            <button class="prompt-chip" data-query="how to do the pythagorean theorem">Pythagorean theorem</button>
+            <button class="prompt-chip" data-query="how to do heron's formula">Heron's formula</button>
+            <button class="prompt-chip" data-query="how to do law of sines">Law of Sines</button>
+            <button class="prompt-chip" data-query="how to do quadratic formula">Quadratic formula</button>
+            <button class="prompt-chip" data-query="how to do distance formula">Distance formula</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SNAP & SOLVE SECTION -->
+    <section id="snap-section" class="section alt-bg">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag"><i data-lucide="camera"></i> Photo Problem Solver</div>
+          <h2 class="section-title">Snap &amp; Solve with Google</h2>
+          <p class="section-subtitle">Take a photo of any math problem or geometry shape using your camera or upload an image. We'll scan it, extract the problem, solve it step-by-step, and search Google for instant answers.</p>
+        </div>
+
+        <div class="snap-grid">
+          <!-- Camera / Upload Control Card -->
+          <div class="glass-card snap-card">
+            <div class="card-header">
+              <h3><i data-lucide="camera"></i> Photo Capture &amp; File Upload</h3>
+              <div class="snap-mode-selector">
+                <button id="mode-upload-btn" class="snap-tab active"><i data-lucide="upload"></i> Upload</button>
+                <button id="mode-camera-btn" class="snap-tab"><i data-lucide="video"></i> Live Camera</button>
+              </div>
+            </div>
+
+            <!-- Upload Dropzone View -->
+            <div id="dropzone-view" class="dropzone-container">
+              <div class="dropzone" id="image-dropzone">
+                <i data-lucide="image-plus" class="dropzone-icon"></i>
+                <p class="dropzone-text"><strong>Click to upload</strong> or drag &amp; drop an image</p>
+                <p class="dropzone-sub">PNG, JPG, JPEG or WEBP (textbook photo or diagram)</p>
+                <input type="file" id="file-input" accept="image/*" class="hidden">
+              </div>
+
+              <div class="sample-photos-row">
+                <span class="sample-label">Presets:</span>
+                <button class="sample-chip" data-sample="triangle">Triangle (Sides 3, 4, 5)</button>
+                <button class="sample-chip" data-sample="pythagoras">Pythagoras Problem</button>
+                <button class="sample-chip" data-sample="quadratic">Quadratic Eq</button>
+              </div>
+            </div>
+
+            <!-- Live Camera Viewfinder -->
+            <div id="camera-view" class="camera-container hidden">
+              <div class="viewfinder">
+                <video id="webcam-video" autoplay playsinline muted></video>
+                <div class="camera-overlay-grid"></div>
+              </div>
+              <div class="camera-controls">
+                <button id="capture-photo-btn" class="btn btn-primary btn-shutter">
+                  <i data-lucide="circle-dot"></i>
+                  <span>Snap Photo</span>
+                </button>
+                <button id="stop-camera-btn" class="btn btn-secondary btn-sm">Stop Camera</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scanner & Solution Output Card -->
+          <div class="glass-card scanner-results-card">
+            <div class="card-header">
+              <h3><i data-lucide="cpu"></i> Image Scanner &amp; Google Search Solver</h3>
+              <span id="scan-status-badge" class="badge-tag status-idle">Ready to Scan</span>
+            </div>
+
+            <!-- Image Canvas Display with Scanner Laser Line -->
+            <div class="canvas-scanner-box">
+              <canvas id="scanner-canvas"></canvas>
+              <div id="laser-line" class="laser-scanner hidden"></div>
+              <div id="target-marker" class="target-marker hidden"></div>
+              <div id="canvas-placeholder" class="canvas-placeholder">
+                <i data-lucide="scan-line"></i>
+                <p>Upload or take a photo to begin instant visual scanning</p>
+              </div>
+            </div>
+
+            <!-- Scanning Progress Bar -->
+            <div id="scan-progress-wrapper" class="progress-bar-wrapper hidden">
+              <div class="progress-info">
+                <span id="progress-text">Analyzing image text...</span>
+                <span id="progress-pct">0%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="progress-fill" class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Extracted Text & Google Actions -->
+            <div id="extracted-text-box" class="extracted-box hidden">
+              <div class="extracted-header">
+                <span><i data-lucide="file-text"></i> Recognized Problem Text:</span>
+                <div class="google-action-btns">
+                  <a id="google-search-link" href="#" target="_blank" class="btn btn-primary btn-sm btn-google">
+                    <i data-lucide="search"></i>
+                    <span>Solve on Google</span>
+                  </a>
+                  <a id="google-lens-link" href="https://lens.google.com/" target="_blank" class="btn btn-secondary btn-sm">
+                    <i data-lucide="external-link"></i>
+                    <span>Google Lens</span>
+                  </a>
+                </div>
+              </div>
+              <div id="ocr-result-text" class="ocr-output-text">No image loaded yet.</div>
+            </div>
+
+            <!-- Instant Solution Card -->
+            <div id="solved-result-card" class="solution-output-card hidden">
+              <div class="solution-header">
+                <i data-lucide="check-circle-2" style="color: var(--accent-emerald);"></i>
+                <strong id="solution-title">Instant Solution</strong>
+              </div>
+              <div id="solution-body" class="solution-body-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: Heron's Formula Calculator & Interactive Visualizer -->
+    <section id="heron-section" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag"><i data-lucide="calculator"></i> Heron's Formula Calculator</div>
+          <h2 class="section-title">Heron's Formula Triangle Solver</h2>
+          <p class="section-subtitle">Find the exact area of any triangle given its three side lengths ($a, b, c$). View step-by-step mathematics and an auto-scaling SVG diagram.</p>
+        </div>
+
+        <div class="calculator-grid">
+          <!-- Input Controls Card -->
+          <div class="glass-card calculator-card">
+            <div class="card-header">
+              <h3><i data-lucide="sliders"></i> Side Length Inputs</h3>
+              <div class="unit-selector-wrapper">
+                <label for="unit-select">Unit:</label>
+                <select id="unit-select" class="custom-select">
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                  <option value="in">in</option>
+                  <option value="ft">ft</option>
+                  <option value="units" selected>units</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Presets Bar -->
+            <div class="presets-bar">
+              <span class="presets-label">Presets:</span>
+              <button class="preset-btn" data-a="3" data-b="4" data-c="5">3-4-5 Right</button>
+              <button class="preset-btn" data-a="5" data-b="5" data-c="6">5-5-6 Isosceles</button>
+              <button class="preset-btn" data-a="7" data-b="8" data-c="9">7-8-9 Scalene</button>
+              <button class="preset-btn" data-a="6" data-b="6" data-c="6">6-6-6 Equilateral</button>
+              <button class="preset-btn" data-a="5" data-b="12" data-c="13">5-12-13 Right</button>
+            </div>
+
+            <!-- Validation Alert Banner -->
+            <div id="heron-alert" class="alert alert-warning hidden">
+              <i data-lucide="alert-triangle"></i>
+              <span id="heron-alert-msg">Invalid side lengths! The sum of any two sides must be greater than the third side ($a+b > c$).</span>
+            </div>
+
+            <!-- Side Inputs Form -->
+            <form id="heron-form" onsubmit="return false;" class="inputs-form">
+              <div class="input-group">
+                <label for="side-a">
+                  <span class="side-badge badge-a">Side a</span>
+                  <span class="side-val-display" id="val-display-a">3</span>
+                </label>
+                <div class="input-with-slider">
+                  <input type="number" id="side-a" value="3" min="0.1" step="any" required>
+                  <input type="range" id="slider-a" value="3" min="1" max="50" step="0.5">
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label for="side-b">
+                  <span class="side-badge badge-b">Side b</span>
+                  <span class="side-val-display" id="val-display-b">4</span>
+                </label>
+                <div class="input-with-slider">
+                  <input type="number" id="side-b" value="4" min="0.1" step="any" required>
+                  <input type="range" id="slider-b" value="4" min="1" max="50" step="0.5">
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label for="side-c">
+                  <span class="side-badge badge-c">Side c</span>
+                  <span class="side-val-display" id="val-display-c">5</span>
+                </label>
+                <div class="input-with-slider">
+                  <input type="number" id="side-c" value="5" min="0.1" step="any" required>
+                  <input type="range" id="slider-c" value="5" min="1" max="50" step="0.5">
+                </div>
+              </div>
+            </form>
+
+            <!-- Results Summary Grid -->
+            <div class="results-summary">
+              <div class="result-main-card">
+                <span class="result-label">Calculated Triangle Area ($\mathcal{A}$)</span>
+                <div class="result-value-wrapper">
+                  <span id="res-area" class="result-huge">6.000</span>
+                  <span class="result-unit-sq" id="unit-sq-display">units²</span>
+                </div>
+              </div>
+
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <span class="metric-title">Semi-Perimeter ($s$)</span>
+                  <span class="metric-val" id="res-s">6.000</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-title">Perimeter ($P$)</span>
+                  <span class="metric-val" id="res-p">12.000</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-title">Inradius ($r$)</span>
+                  <span class="metric-val" id="res-r">1.000</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-title">Circumradius ($R$)</span>
+                  <span class="metric-val" id="res-R">2.500</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SVG Visualizer & Detailed Steps Card -->
+          <div class="glass-card visualizer-card">
+            <div class="card-header">
+              <h3><i data-lucide="shapes"></i> Geometric Diagram</h3>
+              <div class="viz-controls">
+                <label class="toggle-control">
+                  <input type="checkbox" id="toggle-altitude" checked>
+                  <span>Altitude ($h_a$)</span>
+                </label>
+                <label class="toggle-control">
+                  <input type="checkbox" id="toggle-incircle">
+                  <span>Incircle</span>
+                </label>
+                <label class="toggle-control">
+                  <input type="checkbox" id="toggle-circumcircle">
+                  <span>Circumcircle</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- SVG Container -->
+            <div class="svg-container" id="svg-container">
+              <svg id="triangle-svg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet">
+                <!-- Dynamic SVG elements appended via JS -->
+              </svg>
+            </div>
+
+            <!-- Angles & Heights Badges -->
+            <div class="triangle-props-row">
+              <div class="prop-badge">$\alpha$ (at A): <strong id="ang-a">36.87°</strong></div>
+              <div class="prop-badge">$\beta$ (at B): <strong id="ang-b">53.13°</strong></div>
+              <div class="prop-badge">$\gamma$ (at C): <strong id="ang-c">90.00°</strong></div>
+              <div class="prop-badge">Height $h_a$: <strong id="h-a">4.000</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step-by-Step Heron Calculation Breakdown -->
+        <div class="glass-card step-breakdown-card margin-top-lg">
+          <div class="card-header">
+            <h3><i data-lucide="git-commit"></i> Step-by-Step Heron's Formula Solution</h3>
+            <span class="badge-tag">Mathematical Steps</span>
+          </div>
+
+          <div class="steps-grid">
+            <div class="step-card">
+              <div class="step-num">Step 1</div>
+              <div class="step-title">Calculate Semi-Perimeter ($s$)</div>
+              <p class="step-desc">Add all three sides and divide by 2:</p>
+              <div class="katex-box" id="katex-step1">
+                $$s = \frac{a + b + c}{2} = \frac{3 + 4 + 5}{2} = 6$$
+              </div>
+            </div>
+
+            <div class="step-card">
+              <div class="step-num">Step 2</div>
+              <div class="step-title">Compute Terms $(s-a), (s-b), (s-c)$</div>
+              <p class="step-desc">Subtract each side length from the semi-perimeter:</p>
+              <div class="katex-box" id="katex-step2">
+                $$(s-a) = 6 - 3 = 3$$
+                $$(s-b) = 6 - 4 = 2$$
+                $$(s-c) = 6 - 5 = 1$$
+              </div>
+            </div>
+
+            <div class="step-card">
+              <div class="step-num">Step 3</div>
+              <div class="step-title">Product of Terms</div>
+              <p class="step-desc">Multiply semi-perimeter by all difference terms:</p>
+              <div class="katex-box" id="katex-step3">
+                $$\text{Product} = s \cdot (s-a) \cdot (s-b) \cdot (s-c) = 6 \cdot 3 \cdot 2 \cdot 1 = 36$$
+              </div>
+            </div>
+
+            <div class="step-card">
+              <div class="step-num">Step 4</div>
+              <div class="step-title">Square Root (Final Area $\mathcal{A}$)</div>
+              <p class="step-desc">Take the square root of the product:</p>
+              <div class="katex-box" id="katex-step4">
+                $$\mathcal{A} = \sqrt{36} = 6.00\text{ units}^2$$
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Theorem Assistant & Knowledge Hub -->
+    <section id="assistant-section" class="section alt-bg">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag"><i data-lucide="help-circle"></i> Theorem Assistant</div>
+          <h2 class="section-title">Interactive Theorem Assistant</h2>
+          <p class="section-subtitle">Search any math theorem to receive clear explanations, step-by-step guides, live interactive solvers, and practice exercises.</p>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div id="library-section" class="library-controls">
+          <div class="category-tabs" id="category-tabs">
+            <button class="tab-btn active" data-category="all">All Theorems</button>
+            <button class="tab-btn" data-category="geometry">Geometry</button>
+            <button class="tab-btn" data-category="trigonometry">Trigonometry</button>
+            <button class="tab-btn" data-category="algebra">Algebra &amp; Coordinates</button>
+          </div>
+
+          <div class="library-search-box">
+            <i data-lucide="filter"></i>
+            <input type="text" id="library-filter-input" placeholder="Filter theorems by name or formula...">
+          </div>
+        </div>
+
+        <!-- Theorem Cards Grid -->
+        <div class="theorem-grid" id="theorem-cards-grid">
+          <!-- Generated via JS from Theorem Database -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Theorem Modal / Deep-Dive Drawer -->
+  <div id="theorem-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-card">
+      <button id="modal-close-btn" class="modal-close" aria-label="Close modal">
+        <i data-lucide="x"></i>
+      </button>
+
+      <div class="modal-body" id="modal-content">
+        <!-- Content dynamically injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TETRIS MINIGAME SECTION -->
+  <section class="section tetris-section" id="tetris-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag"><i data-lucide="gamepad-2"></i> Minigame Break</div>
+        <h2 class="section-title">Tetris Break</h2>
+        <p class="section-subtitle">Take a relaxing break while studying math theorems.</p>
+      </div>
+
+      <div class="tetris-wrapper">
+        <!-- Left: Game Board -->
+        <div class="tetris-board-panel">
+          <div class="tetris-canvas-frame">
+            <canvas id="tetris-canvas" width="240" height="480"></canvas>
+            <div class="tetris-overlay" id="tetris-overlay">
+              <div class="tetris-overlay-content">
+                <div class="tetris-logo"><i data-lucide="gamepad-2"></i></div>
+                <h3>TETRIS</h3>
+                <p>Press START to play</p>
+                <button id="tetris-start-btn" class="btn btn-primary">
+                  <i data-lucide="play"></i> START GAME
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile D-Pad (hidden on desktop) -->
+          <div class="tetris-dpad" id="tetris-dpad">
+            <!-- Top row: rotate -->
+            <div class="dpad-row dpad-top">
+              <button class="dpad-btn dpad-rotate" id="dpad-rotate" aria-label="Rotate">
+                <i data-lucide="rotate-cw"></i>
+              </button>
+            </div>
+            <!-- Middle row: left / hard-drop / right -->
+            <div class="dpad-row dpad-middle">
+              <button class="dpad-btn dpad-left" id="dpad-left" aria-label="Move Left">
+                <i data-lucide="chevron-left"></i>
+              </button>
+              <button class="dpad-btn dpad-harddrop" id="dpad-harddrop" aria-label="Hard Drop">
+                <i data-lucide="chevrons-down"></i>
+              </button>
+              <button class="dpad-btn dpad-right" id="dpad-right" aria-label="Move Right">
+                <i data-lucide="chevron-right"></i>
+              </button>
+            </div>
+            <!-- Bottom row: soft-drop -->
+            <div class="dpad-row dpad-bottom">
+              <button class="dpad-btn dpad-down" id="dpad-down" aria-label="Soft Drop">
+                <i data-lucide="chevron-down"></i>
+              </button>
+            </div>
+            <!-- Pause button -->
+            <button class="dpad-btn dpad-pause-mobile" id="dpad-pause" aria-label="Pause">
+              <i data-lucide="pause"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Stats & Controls -->
+        <div class="tetris-side-panel">
+          <!-- Score Block -->
+          <div class="tetris-stat-card">
+            <div class="tetris-stat-label">SCORE</div>
+            <div class="tetris-stat-value" id="tetris-score">000000</div>
+          </div>
+          <div class="tetris-stat-card">
+            <div class="tetris-stat-label">LEVEL</div>
+            <div class="tetris-stat-value accent-cyan" id="tetris-level">01</div>
+          </div>
+          <div class="tetris-stat-card">
+            <div class="tetris-stat-label">LINES</div>
+            <div class="tetris-stat-value accent-purple" id="tetris-lines">000</div>
+          </div>
+
+          <!-- Next Piece -->
+          <div class="tetris-next-card">
+            <div class="tetris-stat-label">NEXT</div>
+            <canvas id="tetris-next-canvas" width="100" height="100"></canvas>
+          </div>
+
+          <!-- Buttons -->
+          <div class="tetris-btn-group">
+            <button id="tetris-pause-btn" class="btn btn-secondary btn-sm full-width" disabled>
+              <i data-lucide="pause"></i> PAUSE
+            </button>
+            <button id="tetris-reset-btn" class="btn btn-outline btn-sm full-width">
+              <i data-lucide="rotate-ccw"></i> RESET
+            </button>
+          </div>
+
+          <!-- Controls Legend -->
+          <div class="tetris-controls-legend">
+            <div class="controls-title">CONTROLS</div>
+            <div class="control-row"><kbd>←</kbd><kbd>→</kbd> <span>Move</span></div>
+            <div class="control-row"><kbd>↑</kbd> <span>Rotate</span></div>
+            <div class="control-row"><kbd>↓</kbd> <span>Soft Drop</span></div>
+            <div class="control-row"><kbd>Space</kbd> <span>Hard Drop</span></div>
+            <div class="control-row"><kbd>P</kbd> <span>Pause</span></div>
+            <div class="controls-title mobile-only" style="margin-top:8px">TOUCH CONTROLS</div>
+            <div class="control-row mobile-only"><span>Swipe left/right — Move</span></div>
+            <div class="control-row mobile-only"><span>Swipe up — Rotate</span></div>
+            <div class="control-row mobile-only"><span>Swipe down — Soft drop</span></div>
+            <div class="control-row mobile-only"><span>Tap canvas — Hard drop</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-brand">
+        <div class="logo-icon small"><i data-lucide="sparkles"></i></div>
+        <span class="creator-tag">Made by <strong>George Wang Charlotte NC</strong></span>
+      </div>
+      <p class="footer-copy">OmniTheorem Math Studio // Built with HTML5, Vanilla CSS3 &amp; Modern JS. Math by KaTeX.</p>
+    </div>
+  </footer>
+
+  <!-- Main JavaScript App Code -->
+  <script src="app.js"></script>
+</body>
+</html>

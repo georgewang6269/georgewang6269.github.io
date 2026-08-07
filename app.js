@@ -1629,3 +1629,803 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
+/* ============================================================
+   GRAPHING CALCULATOR
+   ============================================================ */
+(function initGrapher() {
+  const COLORS = ['#0284c7','#e11d48','#059669','#d97706','#7c3aed','#db2777','#0891b2','#65a30d'];
+  let functions = [{ expr: 'x^2', color: COLORS[0], compiled: null }];
+  let fnCounter = 1;
+  let view = { xMin: -10, xMax: 10, yMin: -12, yMax: 12 };
+  let isDragging = false, dragStart = { x: 0, y: 0 }, dragView = null;
+
+  const canvas   = document.getElementById('grapher-canvas');
+  const coordLbl = document.getElementById('grapher-coord-label');
+  const infoContent = document.getElementById('grapher-info-content');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // ── Sizing ─────────────────────────────────────────────────
+  function resizeCanvas() {
+    const wrapper = canvas.parentElement;
+    canvas.width  = wrapper.clientWidth;
+    canvas.height = wrapper.clientHeight;
+    drawAll();
+  }
+  window.addEventListener('resize', resizeCanvas);
+  // Defer until layout is ready
+  setTimeout(resizeCanvas, 100);
+
+  // ── Coord transforms ───────────────────────────────────────
+  function toCanvasX(x) { return (x - view.xMin) / (view.xMax - view.xMin) * canvas.width; }
+  function toCanvasY(y) { return canvas.height - (y - view.yMin) / (view.yMax - view.yMin) * canvas.height; }
+  function toMathX(px)  { return view.xMin + (px / canvas.width)  * (view.xMax - view.xMin); }
+  function toMathY(py)  { return view.yMin + (1 - py / canvas.height) * (view.yMax - view.yMin); }
+
+  // ── Draw grid & axes ───────────────────────────────────────
+  function drawGrid() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    const xRange = view.xMax - view.xMin;
+    const yRange = view.yMax - view.yMin;
+    const step = niceStep(Math.max(xRange, yRange) / 10);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(148,163,184,0.3)';
+    ctx.lineWidth = 1;
+    for (let x = Math.ceil(view.xMin / step) * step; x <= view.xMax; x += step) {
+      ctx.beginPath(); ctx.moveTo(toCanvasX(x), 0); ctx.lineTo(toCanvasX(x), H); ctx.stroke();
+    }
+    for (let y = Math.ceil(view.yMin / step) * step; y <= view.yMax; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, toCanvasY(y)); ctx.lineTo(W, toCanvasY(y)); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(15,23,42,0.35)';
+    ctx.lineWidth = 1.5;
+    const ox = toCanvasX(0), oy = toCanvasY(0);
+    if (ox >= 0 && ox <= W) { ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke(); }
+    if (oy >= 0 && oy <= H) { ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke(); }
+
+    // Tick labels
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    for (let x = Math.ceil(view.xMin / step) * step; x <= view.xMax; x += step) {
+      if (Math.abs(x) < step * 0.01) continue;
+      const cx = toCanvasX(x);
+      const labelY = Math.min(Math.max(oy + 14, 14), H - 4);
+      ctx.fillText(fmt(x), cx, labelY);
+    }
+    ctx.textAlign = 'right';
+    for (let y = Math.ceil(view.yMin / step) * step; y <= view.yMax; y += step) {
+      if (Math.abs(y) < step * 0.01) continue;
+      const cy = toCanvasY(y);
+      const labelX = Math.min(Math.max(ox - 6, 4), W - 4);
+      ctx.fillText(fmt(y), labelX, cy + 4);
+    }
+
+    // Axis arrows
+    ctx.fillStyle = 'rgba(15,23,42,0.35)';
+    if (oy >= 0 && oy <= H) {
+      drawArrow(ctx, W - 8, oy, W, oy);
+      ctx.font = 'bold 12px "Outfit"'; ctx.textAlign = 'left';
+      ctx.fillText('x', W - 6, oy - 6);
+    }
+    if (ox >= 0 && ox <= W) {
+      drawArrow(ctx, ox, 8, ox, 0);
+      ctx.font = 'bold 12px "Outfit"'; ctx.textAlign = 'left';
+      ctx.fillText('y', ox + 6, 14);
+    }
+  }
+
+  function drawArrow(ctx, x1, y1, x2, y2) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const size = 6;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - size * Math.cos(angle - Math.PI / 6), y2 - size * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x2 - size * Math.cos(angle + Math.PI / 6), y2 - size * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // ── Plot one function ──────────────────────────────────────
+  function plotFunction(fn) {
+    if (!fn.compiled) return;
+    const steps = Math.max(canvas.width * 2, 800);
+    const dx = (view.xMax - view.xMin) / steps;
+    ctx.strokeStyle = fn.color;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i <= steps; i++) {
+      const x = view.xMin + i * dx;
+      let y;
+      try { y = fn.compiled.evaluate({ x }); } catch { started = false; continue; }
+      if (!isFinite(y) || isNaN(y)) { started = false; continue; }
+      const cx = toCanvasX(x), cy = toCanvasY(y);
+      if (!started) { ctx.moveTo(cx, cy); started = true; }
+      else { ctx.lineTo(cx, cy); }
+    }
+    ctx.stroke();
+  }
+
+  // ── Draw everything ────────────────────────────────────────
+  function drawAll() {
+    drawGrid();
+    functions.forEach(fn => plotFunction(fn));
+  }
+
+  // ── Analysis ───────────────────────────────────────────────
+  function analyzeAll() {
+    const rows = [];
+    functions.forEach((fn, i) => {
+      if (!fn.compiled) return;
+      const expr = fn.expr;
+      rows.push(`<div class="info-row info-fn-header"><span class="info-key" style="color:${fn.color}">● f${i+1}(x) = ${expr}</span></div>`);
+
+      // y-intercept
+      try {
+        const y0 = fn.compiled.evaluate({ x: 0 });
+        if (isFinite(y0)) rows.push(infoRow('y-intercept', `(0, ${fmt(y0)})`));
+      } catch {}
+
+      // Roots (x where y≈0) by sign-change scan
+      const roots = findRoots(fn.compiled);
+      if (roots.length > 0) {
+        rows.push(infoRow('Roots (x-intercepts)', roots.map(r => `x ≈ ${fmt(r)}`).join(', ')));
+      }
+
+      // Vertex for parabola-like (find local extrema)
+      const extrema = findExtrema(fn.compiled);
+      extrema.forEach(e => {
+        rows.push(infoRow(e.type === 'min' ? 'Minimum' : 'Maximum', `(${fmt(e.x)}, ${fmt(e.y)})`));
+      });
+
+      // Domain note for sqrt/log
+      if (/sqrt|log/.test(expr)) {
+        rows.push(infoRow('Note', 'Domain restricted (no negatives under √ or log)'));
+      }
+    });
+
+    infoContent.innerHTML = rows.length
+      ? rows.join('')
+      : '<p class="info-placeholder">Could not analyze — check your expression.</p>';
+  }
+
+  function infoRow(key, val) {
+    return `<div class="info-row"><span class="info-key">${key}</span><span class="info-val">${val}</span></div>`;
+  }
+
+  function findRoots(compiled) {
+    const steps = 2000;
+    const dx = (view.xMax - view.xMin) / steps;
+    const roots = [];
+    let prev = null;
+    for (let i = 0; i <= steps; i++) {
+      const x = view.xMin + i * dx;
+      let y;
+      try { y = compiled.evaluate({ x }); } catch { prev = null; continue; }
+      if (!isFinite(y)) { prev = null; continue; }
+      if (prev !== null && prev.y * y < 0) {
+        // Bisect
+        let lo = prev.x, hi = x;
+        for (let j = 0; j < 30; j++) {
+          const mid = (lo + hi) / 2;
+          let ym;
+          try { ym = compiled.evaluate({ x: mid }); } catch { break; }
+          if (prev.y * ym < 0) hi = mid; else lo = mid;
+        }
+        const root = (lo + hi) / 2;
+        if (!roots.some(r => Math.abs(r - root) < 0.01)) roots.push(root);
+      }
+      if (Math.abs(y) < 1e-6 && !roots.some(r => Math.abs(r - x) < 0.05)) roots.push(x);
+      prev = { x, y };
+    }
+    return roots.slice(0, 8);
+  }
+
+  function findExtrema(compiled) {
+    const steps = 2000;
+    const dx = (view.xMax - view.xMin) / steps;
+    const extrema = [];
+    let vals = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = view.xMin + i * dx;
+      let y;
+      try { y = compiled.evaluate({ x }); } catch { vals.push(null); continue; }
+      vals.push(isFinite(y) ? y : null);
+    }
+    for (let i = 1; i < vals.length - 1; i++) {
+      if (vals[i] === null || vals[i-1] === null || vals[i+1] === null) continue;
+      const isMin = vals[i] < vals[i-1] && vals[i] < vals[i+1];
+      const isMax = vals[i] > vals[i-1] && vals[i] > vals[i+1];
+      if (isMin || isMax) {
+        const x = view.xMin + i * dx;
+        const y = vals[i];
+        if (!extrema.some(e => Math.abs(e.x - x) < 0.2)) {
+          extrema.push({ x, y, type: isMin ? 'min' : 'max' });
+        }
+      }
+    }
+    return extrema.slice(0, 6);
+  }
+
+  // ── Compile all functions ──────────────────────────────────
+  function compileAll() {
+    functions.forEach(fn => {
+      try {
+        fn.compiled = math.compile(fn.expr);
+      } catch {
+        fn.compiled = null;
+      }
+    });
+  }
+
+  // ── Read view from inputs ──────────────────────────────────
+  function readView() {
+    const xmin = parseFloat(document.getElementById('grapher-xmin').value);
+    const xmax = parseFloat(document.getElementById('grapher-xmax').value);
+    const ymin = parseFloat(document.getElementById('grapher-ymin').value);
+    const ymax = parseFloat(document.getElementById('grapher-ymax').value);
+    if (isFinite(xmin) && isFinite(xmax) && xmin < xmax) { view.xMin = xmin; view.xMax = xmax; }
+    if (isFinite(ymin) && isFinite(ymax) && ymin < ymax) { view.yMin = ymin; view.yMax = ymax; }
+  }
+
+  function writeView() {
+    document.getElementById('grapher-xmin').value = fmt(view.xMin);
+    document.getElementById('grapher-xmax').value = fmt(view.xMax);
+    document.getElementById('grapher-ymin').value = fmt(view.yMin);
+    document.getElementById('grapher-ymax').value = fmt(view.yMax);
+  }
+
+  // ── Plot button ────────────────────────────────────────────
+  document.getElementById('grapher-plot-btn').addEventListener('click', () => {
+    readFnInputs();
+    readView();
+    compileAll();
+    drawAll();
+    analyzeAll();
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  // ── Reset view ─────────────────────────────────────────────
+  document.getElementById('grapher-reset-view-btn').addEventListener('click', () => {
+    view = { xMin: -10, xMax: 10, yMin: -12, yMax: 12 };
+    writeView();
+    drawAll();
+  });
+
+  // ── Add function row ───────────────────────────────────────
+  document.getElementById('grapher-add-fn-btn').addEventListener('click', () => {
+    const color = COLORS[fnCounter % COLORS.length];
+    const id = fnCounter++;
+    const row = document.createElement('div');
+    row.className = 'grapher-fn-row';
+    row.dataset.id = id;
+    row.innerHTML = `
+      <span class="fn-label">f${functions.length + 1}(x) =</span>
+      <input type="text" class="fn-input" value="" placeholder="e.g. sin(x), x^3">
+      <span class="fn-color-dot" style="background:${color}"></span>
+      <button class="fn-remove-btn" title="Remove"><i data-lucide="x"></i></button>
+    `;
+    document.getElementById('grapher-fn-list').appendChild(row);
+    functions.push({ expr: '', color, compiled: null });
+    row.querySelector('.fn-remove-btn').addEventListener('click', () => removeFnRow(row, id));
+    if (window.lucide) window.lucide.createIcons();
+    row.querySelector('.fn-input').focus();
+  });
+
+  function removeFnRow(row, id) {
+    const idx = [...document.querySelectorAll('.grapher-fn-row')].indexOf(row);
+    if (functions.length <= 1) return;
+    functions.splice(idx, 1);
+    row.remove();
+    compileAll(); drawAll();
+  }
+
+  // Wire up initial remove button
+  document.querySelector('.fn-remove-btn').addEventListener('click', function() {
+    const row = this.closest('.grapher-fn-row');
+    if (functions.length > 1) removeFnRow(row, 0);
+  });
+
+  // ── Read all fn inputs ─────────────────────────────────────
+  function readFnInputs() {
+    document.querySelectorAll('.grapher-fn-row').forEach((row, i) => {
+      const val = row.querySelector('.fn-input').value.trim();
+      if (functions[i]) functions[i].expr = val;
+    });
+  }
+
+  // ── Presets ────────────────────────────────────────────────
+  document.querySelectorAll('.grapher-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fnExpr = btn.dataset.fn;
+      // Put in first fn row
+      const firstInput = document.querySelector('.grapher-fn-row .fn-input');
+      if (firstInput) firstInput.value = fnExpr;
+      functions[0].expr = fnExpr;
+      compileAll(); drawAll(); analyzeAll();
+    });
+  });
+
+  // ── Mouse hover: coord label ───────────────────────────────
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const py = (e.clientY - rect.top)  * (canvas.height / rect.height);
+    const mx = toMathX(px), my = toMathY(py);
+    coordLbl.textContent = `x: ${fmt(mx)}, y: ${fmt(my)}`;
+    coordLbl.classList.add('visible');
+
+    // Drag pan
+    if (isDragging) {
+      const dx = toMathX(dragStart.x) - toMathX(px);
+      const dy = toMathY(dragStart.y) - toMathY(py);
+      view.xMin = dragView.xMin + dx; view.xMax = dragView.xMax + dx;
+      view.yMin = dragView.yMin + dy; view.yMax = dragView.yMax + dy;
+      writeView();
+      drawAll();
+    }
+  });
+  canvas.addEventListener('mouseleave', () => coordLbl.classList.remove('visible'));
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true;
+    const rect = canvas.getBoundingClientRect();
+    dragStart = {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top)  * (canvas.height / rect.height)
+    };
+    dragView = { ...view };
+    canvas.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; canvas.style.cursor = 'crosshair'; });
+
+  // ── Scroll zoom ────────────────────────────────────────────
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.12 : 0.88;
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const py = (e.clientY - rect.top)  * (canvas.height / rect.height);
+    const mx = toMathX(px), my = toMathY(py);
+    view.xMin = mx + (view.xMin - mx) * factor;
+    view.xMax = mx + (view.xMax - mx) * factor;
+    view.yMin = my + (view.yMin - my) * factor;
+    view.yMax = my + (view.yMax - my) * factor;
+    writeView();
+    drawAll();
+  }, { passive: false });
+
+  // ── Helpers ────────────────────────────────────────────────
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const f = raw / p;
+    if (f < 1.5) return p;
+    if (f < 3.5) return 2 * p;
+    if (f < 7.5) return 5 * p;
+    return 10 * p;
+  }
+
+  function fmt(n) {
+    if (!isFinite(n)) return '—';
+    if (Math.abs(n) < 1e-9) return '0';
+    const abs = Math.abs(n);
+    if (abs >= 1000 || (abs < 0.01 && abs > 0)) return n.toExponential(2);
+    const decimals = abs >= 10 ? 1 : abs >= 1 ? 2 : 3;
+    return parseFloat(n.toFixed(decimals)).toString();
+  }
+
+  // ── Initial plot ───────────────────────────────────────────
+  compileAll();
+  drawAll();
+  analyzeAll();
+})();
+
+/* ============================================================
+   GAMES HUB — Tab switching
+   ============================================================ */
+document.querySelectorAll('.game-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.game-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.game-panel').forEach(p => p.classList.add('hidden'));
+    tab.classList.add('active');
+    document.getElementById('game-panel-' + tab.dataset.game).classList.remove('hidden');
+    if (tab.dataset.game === 'sudoku' && !sudokuInitialized) { initSudoku(); sudokuInitialized = true; }
+    if (tab.dataset.game === 'wordle' && !wordleInitialized) { initWordle(); wordleInitialized = true; }
+  });
+});
+let sudokuInitialized = false, wordleInitialized = false;
+
+/* ============================================================
+   SUDOKU
+   ============================================================ */
+function initSudoku() {
+  let solution = [], puzzle = [], selected = null;
+  let mistakes = 0, timerInterval = null, seconds = 0;
+  let difficulty = 'easy';
+  const CLUES = { easy: 46, medium: 32, hard: 24 };
+
+  // ── Sudoku generator ──────────────────────────────────────
+  function generateSolution() {
+    const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    fillGrid(grid);
+    return grid;
+  }
+
+  function fillGrid(grid) {
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        if (grid[row][col] === 0) {
+          const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+          for (const n of nums) {
+            if (isValid(grid, row, col, n)) {
+              grid[row][col] = n;
+              if (fillGrid(grid)) return true;
+              grid[row][col] = 0;
+            }
+          }
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function isValid(grid, row, col, n) {
+    for (let i = 0; i < 9; i++) {
+      if (grid[row][i] === n) return false;
+      if (grid[i][col] === n) return false;
+    }
+    const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++)
+      for (let c = bc; c < bc + 3; c++)
+        if (grid[r][c] === n) return false;
+    return true;
+  }
+
+  function makePuzzle(sol, clues) {
+    const p = sol.map(r => [...r]);
+    const cells = shuffle([...Array(81).keys()]);
+    let removed = 0;
+    for (const idx of cells) {
+      if (81 - removed <= clues) break;
+      const r = Math.floor(idx / 9), c = idx % 9;
+      const backup = p[r][c];
+      p[r][c] = 0;
+      if (countSolutions(p.map(row => [...row])) === 1) { removed++; }
+      else { p[r][c] = backup; }
+    }
+    return p;
+  }
+
+  function countSolutions(grid, count = { n: 0 }) {
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        if (grid[row][col] === 0) {
+          for (let n = 1; n <= 9; n++) {
+            if (isValid(grid, row, col, n)) {
+              grid[row][col] = n;
+              countSolutions(grid, count);
+              grid[row][col] = 0;
+              if (count.n > 1) return count.n;
+            }
+          }
+          return count.n;
+        }
+      }
+    }
+    count.n++;
+    return count.n;
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // ── Render grid ───────────────────────────────────────────
+  function renderGrid() {
+    const grid = document.getElementById('sudoku-grid');
+    grid.innerHTML = '';
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'sudoku-cell';
+        const idx = r * 9 + c;
+        if (puzzle[r][c] !== 0) {
+          cell.textContent = puzzle[r][c];
+          cell.classList.add('given');
+        }
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.addEventListener('click', () => selectCell(r, c));
+        grid.appendChild(cell);
+      }
+    }
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function selectCell(r, c) {
+    selected = { r, c };
+    highlightCells(r, c);
+  }
+
+  function highlightCells(r, c) {
+    document.querySelectorAll('.sudoku-cell').forEach(cell => {
+      cell.classList.remove('selected', 'highlight');
+    });
+    document.querySelectorAll('.sudoku-cell').forEach(cell => {
+      const cr = +cell.dataset.r, cc = +cell.dataset.c;
+      const sameBox = Math.floor(cr/3) === Math.floor(r/3) && Math.floor(cc/3) === Math.floor(c/3);
+      if (cr === r || cc === c || sameBox) cell.classList.add('highlight');
+    });
+    const sel = document.querySelector(`.sudoku-cell[data-r="${r}"][data-c="${c}"]`);
+    if (sel) { sel.classList.remove('highlight'); sel.classList.add('selected'); }
+  }
+
+  function placeNumber(n) {
+    if (!selected) return;
+    const { r, c } = selected;
+    const cellEl = document.querySelector(`.sudoku-cell[data-r="${r}"][data-c="${c}"]`);
+    if (!cellEl || cellEl.classList.contains('given')) return;
+
+    if (n === 0) {
+      puzzle[r][c] = 0;
+      cellEl.textContent = '';
+      cellEl.classList.remove('error', 'correct');
+      return;
+    }
+
+    puzzle[r][c] = n;
+    cellEl.textContent = n;
+    if (n === solution[r][c]) {
+      cellEl.classList.remove('error');
+      cellEl.classList.add('correct');
+      checkWin();
+    } else {
+      cellEl.classList.add('error');
+      cellEl.classList.remove('correct');
+      mistakes++;
+      document.getElementById('sudoku-mistake-count').textContent = mistakes;
+      if (mistakes >= 3) {
+        document.getElementById('sudoku-status').textContent = '💀 Game over! Try again.';
+        document.getElementById('sudoku-status').style.color = 'var(--accent-rose)';
+        stopTimer();
+      }
+    }
+  }
+
+  function checkWin() {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (puzzle[r][c] !== solution[r][c]) return;
+    stopTimer();
+    document.getElementById('sudoku-status').textContent = '🎉 Brilliant! Puzzle solved!';
+    document.getElementById('sudoku-status').style.color = 'var(--accent-green)';
+  }
+
+  // ── Timer ─────────────────────────────────────────────────
+  function startTimer() {
+    stopTimer();
+    seconds = 0;
+    timerInterval = setInterval(() => {
+      seconds++;
+      const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const s = String(seconds % 60).padStart(2, '0');
+      document.getElementById('sudoku-timer').textContent = `${m}:${s}`;
+    }, 1000);
+  }
+
+  function stopTimer() { clearInterval(timerInterval); }
+
+  // ── New game ──────────────────────────────────────────────
+  function newGame() {
+    mistakes = 0;
+    document.getElementById('sudoku-mistake-count').textContent = 0;
+    document.getElementById('sudoku-status').textContent = '';
+    solution = generateSolution();
+    puzzle = makePuzzle(solution, CLUES[difficulty]);
+    selected = null;
+    renderGrid();
+    startTimer();
+  }
+
+  // ── Events ────────────────────────────────────────────────
+  document.getElementById('sudoku-new-btn').addEventListener('click', newGame);
+
+  document.getElementById('sudoku-solve-btn').addEventListener('click', () => {
+    stopTimer();
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        puzzle[r][c] = solution[r][c];
+        const cell = document.querySelector(`.sudoku-cell[data-r="${r}"][data-c="${c}"]`);
+        if (cell) { cell.textContent = solution[r][c]; cell.classList.remove('error'); cell.classList.add('correct'); }
+      }
+    }
+    document.getElementById('sudoku-status').textContent = '✨ Solution revealed!';
+  });
+
+  document.querySelectorAll('.num-btn').forEach(btn => {
+    btn.addEventListener('click', () => placeNumber(+btn.dataset.n));
+  });
+
+  document.querySelectorAll('.sudoku-diff').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sudoku-diff').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      difficulty = btn.dataset.diff;
+    });
+  });
+
+  // keyboard support
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('game-panel-sudoku').classList.contains('hidden')) return;
+    if (e.key >= '1' && e.key <= '9') placeNumber(+e.key);
+    if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') placeNumber(0);
+  });
+
+  newGame();
+}
+
+/* ============================================================
+   WORDLE
+   ============================================================ */
+function initWordle() {
+  const WORDS = ['crane','slate','trace','audio','media','piano','table','water','earth','light','night','dream','bread','steam','board','paper','story','smart','solar','plant','sweet','juice','grape','beach','chair','cloud','flame','storm','smile','heart','money','music','river','house','stars','pizza','candy','quick','brown','foxes','jumps','blaze','crisp','frost','glide','grasp','hasty','index','joust','knack','lusty','mirth','nippy','olive','plumb','quest','rasps','shady','taunt','usher','vivid','whirl','xerox','yacht','zebra','adore','baker','cabin','daisy','elbow','fancy','garth','hazel','ivory','jewel','karma','lemon','maple','noble','oaken','porch','queen','risky','salve','thumb','ultra','viola','waltz','xenon','yearn','zonal','abbey','blunt','chess','depot','ember','flood','guava','herbs','input','joker','knife','logic','manor','nudge','optic','perch','quirk','ranch','scone','track','unity','valor','witty','xerus','yeoman','zebra','ached','begun','chunk','ditch','entry','fixed','groan','handy','index','jazzy','kinky','lunar','moose','novel','occur','panic','quota','rouge','scout','twist','usual','vivid','woken','youth','zesty'];
+
+  let target = '', guesses = [], currentGuess = '', gameOver = false;
+  const MAX_GUESSES = 6, WORD_LEN = 5;
+
+  function pickWord() {
+    const five = WORDS.filter(w => w.length === 5);
+    return five[Math.floor(Math.random() * five.length)].toUpperCase();
+  }
+
+  // ── Build board ───────────────────────────────────────────
+  function buildBoard() {
+    const board = document.getElementById('wordle-board');
+    board.innerHTML = '';
+    for (let r = 0; r < MAX_GUESSES; r++) {
+      const row = document.createElement('div');
+      row.className = 'wordle-row';
+      row.id = 'wrow-' + r;
+      for (let c = 0; c < WORD_LEN; c++) {
+        const tile = document.createElement('div');
+        tile.className = 'wordle-tile';
+        tile.id = `wtile-${r}-${c}`;
+        row.appendChild(tile);
+      }
+      board.appendChild(row);
+    }
+  }
+
+  // ── Update current row display ────────────────────────────
+  function updateCurrentRow() {
+    const r = guesses.length;
+    for (let c = 0; c < WORD_LEN; c++) {
+      const tile = document.getElementById(`wtile-${r}-${c}`);
+      if (!tile) continue;
+      tile.textContent = currentGuess[c] || '';
+      tile.className = 'wordle-tile' + (currentGuess[c] ? ' filled' : '');
+    }
+  }
+
+  // ── Submit guess ──────────────────────────────────────────
+  function submitGuess() {
+    if (currentGuess.length < WORD_LEN) {
+      setStatus('Not enough letters!'); return;
+    }
+    const r = guesses.length;
+    const result = scoreGuess(currentGuess, target);
+
+    for (let c = 0; c < WORD_LEN; c++) {
+      const tile = document.getElementById(`wtile-${r}-${c}`);
+      tile.textContent = currentGuess[c];
+      tile.className = 'wordle-tile ' + result[c];
+    }
+
+    updateKeyboard(currentGuess, result);
+    guesses.push(currentGuess);
+
+    if (currentGuess === target) {
+      setStatus('🎉 You got it! ' + target);
+      gameOver = true;
+    } else if (guesses.length >= MAX_GUESSES) {
+      setStatus('😢 The word was: ' + target);
+      gameOver = true;
+    }
+    currentGuess = '';
+  }
+
+  function scoreGuess(guess, answer) {
+    const result = Array(WORD_LEN).fill('absent');
+    const answerArr = answer.split('');
+    const used = Array(WORD_LEN).fill(false);
+
+    // First pass: correct
+    for (let i = 0; i < WORD_LEN; i++) {
+      if (guess[i] === answer[i]) { result[i] = 'correct'; used[i] = true; }
+    }
+    // Second pass: present
+    for (let i = 0; i < WORD_LEN; i++) {
+      if (result[i] === 'correct') continue;
+      const j = answerArr.findIndex((ch, k) => ch === guess[i] && !used[k]);
+      if (j !== -1) { result[i] = 'present'; used[j] = true; }
+    }
+    return result;
+  }
+
+  function updateKeyboard(guess, result) {
+    const priority = { correct: 3, present: 2, absent: 1 };
+    for (let i = 0; i < WORD_LEN; i++) {
+      const key = document.querySelector(`.wkey[data-k="${guess[i]}"]`);
+      if (!key) continue;
+      const cur = priority[key.dataset.state || ''] || 0;
+      if ((priority[result[i]] || 0) > cur) {
+        key.classList.remove('correct', 'present', 'absent');
+        key.classList.add(result[i]);
+        key.dataset.state = result[i];
+      }
+    }
+  }
+
+  function setStatus(msg) {
+    document.getElementById('wordle-status').textContent = msg;
+  }
+
+  // ── New game ──────────────────────────────────────────────
+  function newGame() {
+    target = pickWord();
+    guesses = [];
+    currentGuess = '';
+    gameOver = false;
+    buildBoard();
+    setStatus('Guess the 5-letter word!');
+    // Reset keyboard colors
+    document.querySelectorAll('.wkey').forEach(k => {
+      k.classList.remove('correct', 'present', 'absent');
+      delete k.dataset.state;
+    });
+  }
+
+  // ── Input ─────────────────────────────────────────────────
+  function handleKey(k) {
+    if (gameOver) return;
+    if (k === 'ENTER') { submitGuess(); return; }
+    if (k === 'BACKSPACE') {
+      currentGuess = currentGuess.slice(0, -1);
+      updateCurrentRow(); return;
+    }
+    if (/^[A-Z]$/.test(k) && currentGuess.length < WORD_LEN) {
+      currentGuess += k;
+      updateCurrentRow();
+    }
+  }
+
+  // On-screen keyboard
+  document.querySelectorAll('.wkey').forEach(btn => {
+    btn.addEventListener('click', () => handleKey(btn.dataset.k));
+  });
+
+  // Physical keyboard
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('game-panel-wordle').classList.contains('hidden')) return;
+    if (e.key === 'Enter') handleKey('ENTER');
+    else if (e.key === 'Backspace') handleKey('BACKSPACE');
+    else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+  });
+
+  document.getElementById('wordle-new-btn').addEventListener('click', newGame);
+
+  newGame();
+}

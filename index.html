@@ -19,6 +19,9 @@
   <!-- Tesseract.js for OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
+  <!-- math.js for graphing calculator expression parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -48,6 +51,7 @@
         <a href="#snap-section" class="nav-link">Snap &amp; Solve 📸</a>
         <a href="#assistant-section" class="nav-link">Theorem Assistant</a>
         <a href="#library-section" class="nav-link">Theorem Library</a>
+        <a href="#grapher-section" class="nav-link">📈 Grapher</a>
         <a href="#tetris-section" class="nav-link">🎮 Tetris</a>
       </nav>
 
@@ -456,115 +460,232 @@
     </div>
   </div>
 
-  <!-- TETRIS MINIGAME SECTION -->
-  <section class="section tetris-section" id="tetris-section">
+  <!-- GRAPHING CALCULATOR SECTION -->
+  <section class="section alt-bg" id="grapher-section">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag"><i data-lucide="gamepad-2"></i> Minigame Break</div>
-        <h2 class="section-title">Tetris Break</h2>
-        <p class="section-subtitle">Take a relaxing break while studying math theorems.</p>
+        <div class="section-tag"><i data-lucide="line-chart"></i> Graphing Calculator</div>
+        <h2 class="section-title">Graph Any Function 📈</h2>
+        <p class="section-subtitle">Plot parabolas, lines, sine waves, and more. Add multiple functions and instantly see vertex, roots, and key info!</p>
       </div>
 
-      <div class="tetris-wrapper">
-        <!-- Left: Game Board -->
-        <div class="tetris-board-panel">
-          <div class="tetris-canvas-frame">
-            <canvas id="tetris-canvas" width="240" height="480"></canvas>
-            <div class="tetris-overlay" id="tetris-overlay">
-              <div class="tetris-overlay-content">
-                <div class="tetris-logo"><i data-lucide="gamepad-2"></i></div>
-                <h3>TETRIS</h3>
-                <p>Press START to play</p>
-                <button id="tetris-start-btn" class="btn btn-primary">
-                  <i data-lucide="play"></i> START GAME
-                </button>
-              </div>
+      <div class="grapher-layout">
+        <!-- Left: Controls -->
+        <div class="glass-card grapher-controls-card">
+          <div class="card-header">
+            <h3><i data-lucide="function-square"></i> Functions</h3>
+            <button id="grapher-add-fn-btn" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Add</button>
+          </div>
+
+          <div id="grapher-fn-list" class="grapher-fn-list">
+            <div class="grapher-fn-row" data-id="0">
+              <span class="fn-label">f(x) =</span>
+              <input type="text" class="fn-input" value="x^2" placeholder="e.g. x^2, sin(x), 2*x+1">
+              <span class="fn-color-dot" style="background:#0284c7"></span>
+              <button class="fn-remove-btn" title="Remove"><i data-lucide="x"></i></button>
             </div>
           </div>
 
-          <!-- Mobile D-Pad (hidden on desktop) -->
-          <div class="tetris-dpad" id="tetris-dpad">
-            <!-- Top row: rotate -->
-            <div class="dpad-row dpad-top">
-              <button class="dpad-btn dpad-rotate" id="dpad-rotate" aria-label="Rotate">
-                <i data-lucide="rotate-cw"></i>
-              </button>
+          <div class="grapher-presets">
+            <span class="presets-label">Quick presets:</span>
+            <button class="preset-btn grapher-preset" data-fn="x^2">x²</button>
+            <button class="preset-btn grapher-preset" data-fn="x^3 - 3*x">x³−3x</button>
+            <button class="preset-btn grapher-preset" data-fn="2*x + 1">2x+1</button>
+            <button class="preset-btn grapher-preset" data-fn="sin(x)">sin(x)</button>
+            <button class="preset-btn grapher-preset" data-fn="cos(x)">cos(x)</button>
+            <button class="preset-btn grapher-preset" data-fn="sqrt(x)">√x</button>
+            <button class="preset-btn grapher-preset" data-fn="abs(x)">|x|</button>
+            <button class="preset-btn grapher-preset" data-fn="-x^2 + 4">−x²+4</button>
+          </div>
+
+          <div class="grapher-view-controls">
+            <div class="grapher-range-row">
+              <label>x from <input type="number" id="grapher-xmin" value="-10" class="range-input"> to <input type="number" id="grapher-xmax" value="10" class="range-input"></label>
             </div>
-            <!-- Middle row: left / hard-drop / right -->
-            <div class="dpad-row dpad-middle">
-              <button class="dpad-btn dpad-left" id="dpad-left" aria-label="Move Left">
-                <i data-lucide="chevron-left"></i>
-              </button>
-              <button class="dpad-btn dpad-harddrop" id="dpad-harddrop" aria-label="Hard Drop">
-                <i data-lucide="chevrons-down"></i>
-              </button>
-              <button class="dpad-btn dpad-right" id="dpad-right" aria-label="Move Right">
-                <i data-lucide="chevron-right"></i>
-              </button>
+            <div class="grapher-range-row">
+              <label>y from <input type="number" id="grapher-ymin" value="-12" class="range-input"> to <input type="number" id="grapher-ymax" value="12" class="range-input"></label>
             </div>
-            <!-- Bottom row: soft-drop -->
-            <div class="dpad-row dpad-bottom">
-              <button class="dpad-btn dpad-down" id="dpad-down" aria-label="Soft Drop">
-                <i data-lucide="chevron-down"></i>
-              </button>
+            <div class="grapher-btn-row">
+              <button id="grapher-plot-btn" class="btn btn-primary btn-sm"><i data-lucide="play"></i> Plot</button>
+              <button id="grapher-reset-view-btn" class="btn btn-secondary btn-sm"><i data-lucide="maximize-2"></i> Reset View</button>
             </div>
-            <!-- Pause button -->
-            <button class="dpad-btn dpad-pause-mobile" id="dpad-pause" aria-label="Pause">
-              <i data-lucide="pause"></i>
-            </button>
+          </div>
+
+          <div id="grapher-info-panel" class="grapher-info-panel">
+            <div class="info-panel-title"><i data-lucide="info"></i> Function Analysis</div>
+            <div id="grapher-info-content" class="info-content-list">
+              <p class="info-placeholder">Plot a function to see analysis here.</p>
+            </div>
           </div>
         </div>
 
-        <!-- Right: Stats & Controls -->
-        <div class="tetris-side-panel">
-          <!-- Score Block -->
-          <div class="tetris-stat-card">
-            <div class="tetris-stat-label">SCORE</div>
-            <div class="tetris-stat-value" id="tetris-score">000000</div>
+        <!-- Right: Canvas -->
+        <div class="glass-card grapher-canvas-card">
+          <div class="grapher-canvas-wrapper">
+            <canvas id="grapher-canvas"></canvas>
+            <div class="grapher-coord-label" id="grapher-coord-label"></div>
           </div>
-          <div class="tetris-stat-card">
-            <div class="tetris-stat-label">LEVEL</div>
-            <div class="tetris-stat-value accent-cyan" id="tetris-level">01</div>
-          </div>
-          <div class="tetris-stat-card">
-            <div class="tetris-stat-label">LINES</div>
-            <div class="tetris-stat-value accent-purple" id="tetris-lines">000</div>
-          </div>
-
-          <!-- Next Piece -->
-          <div class="tetris-next-card">
-            <div class="tetris-stat-label">NEXT</div>
-            <canvas id="tetris-next-canvas" width="100" height="100"></canvas>
-          </div>
-
-          <!-- Buttons -->
-          <div class="tetris-btn-group">
-            <button id="tetris-pause-btn" class="btn btn-secondary btn-sm full-width" disabled>
-              <i data-lucide="pause"></i> PAUSE
-            </button>
-            <button id="tetris-reset-btn" class="btn btn-outline btn-sm full-width">
-              <i data-lucide="rotate-ccw"></i> RESET
-            </button>
-          </div>
-
-          <!-- Controls Legend -->
-          <div class="tetris-controls-legend">
-            <div class="controls-title">CONTROLS</div>
-            <div class="control-row"><kbd>←</kbd><kbd>→</kbd> <span>Move</span></div>
-            <div class="control-row"><kbd>↑</kbd> <span>Rotate</span></div>
-            <div class="control-row"><kbd>↓</kbd> <span>Soft Drop</span></div>
-            <div class="control-row"><kbd>Space</kbd> <span>Hard Drop</span></div>
-            <div class="control-row"><kbd>P</kbd> <span>Pause</span></div>
-            <div class="controls-title mobile-only" style="margin-top:8px">TOUCH CONTROLS</div>
-            <div class="control-row mobile-only"><span>Swipe left/right — Move</span></div>
-            <div class="control-row mobile-only"><span>Swipe up — Rotate</span></div>
-            <div class="control-row mobile-only"><span>Swipe down — Soft drop</span></div>
-            <div class="control-row mobile-only"><span>Tap canvas — Hard drop</span></div>
-          </div>
+          <p class="grapher-hint"><i data-lucide="mouse-pointer-2"></i> Hover to read coordinates &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Drag to pan</p>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- GAMES HUB SECTION -->
+  <section class="section" id="tetris-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag"><i data-lucide="gamepad-2"></i> Games Break</div>
+        <h2 class="section-title">Brain Break Games 🎮</h2>
+        <p class="section-subtitle">Take a fun break from studying! Play Tetris, solve a Sudoku, or guess today's word.</p>
+      </div>
+
+      <!-- Game Tabs -->
+      <div class="games-tabs">
+        <button class="game-tab active" data-game="tetris">🎮 Tetris</button>
+        <button class="game-tab" data-game="sudoku">🔢 Sudoku</button>
+        <button class="game-tab" data-game="wordle">🟩 Wordle</button>
+      </div>
+
+      <!-- ══ TETRIS PANEL ══ -->
+      <div class="game-panel" id="game-panel-tetris">
+        <div class="tetris-wrapper">
+          <div class="tetris-board-panel">
+            <div class="tetris-canvas-frame">
+              <canvas id="tetris-canvas" width="240" height="480"></canvas>
+              <div class="tetris-overlay" id="tetris-overlay">
+                <div class="tetris-overlay-content">
+                  <div class="tetris-logo"><i data-lucide="gamepad-2"></i></div>
+                  <h3>TETRIS</h3>
+                  <p>Press START to play</p>
+                  <button id="tetris-start-btn" class="btn btn-primary">
+                    <i data-lucide="play"></i> START GAME
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="tetris-dpad" id="tetris-dpad">
+              <div class="dpad-row dpad-top">
+                <button class="dpad-btn dpad-rotate" id="dpad-rotate" aria-label="Rotate"><i data-lucide="rotate-cw"></i></button>
+              </div>
+              <div class="dpad-row dpad-middle">
+                <button class="dpad-btn dpad-left" id="dpad-left" aria-label="Move Left"><i data-lucide="chevron-left"></i></button>
+                <button class="dpad-btn dpad-harddrop" id="dpad-harddrop" aria-label="Hard Drop"><i data-lucide="chevrons-down"></i></button>
+                <button class="dpad-btn dpad-right" id="dpad-right" aria-label="Move Right"><i data-lucide="chevron-right"></i></button>
+              </div>
+              <div class="dpad-row dpad-bottom">
+                <button class="dpad-btn dpad-down" id="dpad-down" aria-label="Soft Drop"><i data-lucide="chevron-down"></i></button>
+              </div>
+              <button class="dpad-btn dpad-pause-mobile" id="dpad-pause" aria-label="Pause"><i data-lucide="pause"></i></button>
+            </div>
+          </div>
+          <div class="tetris-side-panel">
+            <div class="tetris-stat-card"><div class="tetris-stat-label">SCORE</div><div class="tetris-stat-value" id="tetris-score">000000</div></div>
+            <div class="tetris-stat-card"><div class="tetris-stat-label">LEVEL</div><div class="tetris-stat-value accent-cyan" id="tetris-level">01</div></div>
+            <div class="tetris-stat-card"><div class="tetris-stat-label">LINES</div><div class="tetris-stat-value accent-purple" id="tetris-lines">000</div></div>
+            <div class="tetris-next-card"><div class="tetris-stat-label">NEXT</div><canvas id="tetris-next-canvas" width="100" height="100"></canvas></div>
+            <div class="tetris-btn-group">
+              <button id="tetris-pause-btn" class="btn btn-secondary btn-sm full-width" disabled><i data-lucide="pause"></i> PAUSE</button>
+              <button id="tetris-reset-btn" class="btn btn-outline btn-sm full-width"><i data-lucide="rotate-ccw"></i> RESET</button>
+            </div>
+            <div class="tetris-controls-legend">
+              <div class="controls-title">CONTROLS</div>
+              <div class="control-row"><kbd>←</kbd><kbd>→</kbd> <span>Move</span></div>
+              <div class="control-row"><kbd>↑</kbd> <span>Rotate</span></div>
+              <div class="control-row"><kbd>↓</kbd> <span>Soft Drop</span></div>
+              <div class="control-row"><kbd>Space</kbd> <span>Hard Drop</span></div>
+              <div class="control-row"><kbd>P</kbd> <span>Pause</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SUDOKU PANEL ══ -->
+      <div class="game-panel hidden" id="game-panel-sudoku">
+        <div class="sudoku-layout">
+          <div class="sudoku-board-wrapper">
+            <div class="sudoku-timer-bar">
+              <span id="sudoku-timer">00:00</span>
+              <span id="sudoku-mistakes" class="sudoku-mistakes">Mistakes: <b id="sudoku-mistake-count">0</b>/3</span>
+            </div>
+            <div class="sudoku-grid" id="sudoku-grid"></div>
+            <div class="sudoku-numpad" id="sudoku-numpad">
+              <button class="num-btn" data-n="1">1</button>
+              <button class="num-btn" data-n="2">2</button>
+              <button class="num-btn" data-n="3">3</button>
+              <button class="num-btn" data-n="4">4</button>
+              <button class="num-btn" data-n="5">5</button>
+              <button class="num-btn" data-n="6">6</button>
+              <button class="num-btn" data-n="7">7</button>
+              <button class="num-btn" data-n="8">8</button>
+              <button class="num-btn" data-n="9">9</button>
+              <button class="num-btn num-erase" data-n="0"><i data-lucide="delete"></i></button>
+            </div>
+          </div>
+          <div class="sudoku-controls-panel">
+            <div class="sudoku-difficulty">
+              <span class="presets-label">Difficulty:</span>
+              <button class="preset-btn sudoku-diff active" data-diff="easy">Easy</button>
+              <button class="preset-btn sudoku-diff" data-diff="medium">Medium</button>
+              <button class="preset-btn sudoku-diff" data-diff="hard">Hard</button>
+            </div>
+            <button id="sudoku-new-btn" class="btn btn-primary full-width"><i data-lucide="refresh-cw"></i> New Game</button>
+            <button id="sudoku-solve-btn" class="btn btn-secondary full-width"><i data-lucide="lightbulb"></i> Show Solution</button>
+            <div id="sudoku-status" class="sudoku-status-msg"></div>
+            <div class="sudoku-how">
+              <strong>How to play:</strong>
+              <ul>
+                <li>Click a cell, then tap a number</li>
+                <li>Each row, column &amp; 3×3 box must have 1–9</li>
+                <li>3 mistakes = game over</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ WORDLE PANEL ══ -->
+      <div class="game-panel hidden" id="game-panel-wordle">
+        <div class="wordle-layout">
+          <div class="wordle-center">
+            <div class="wordle-header">
+              <span id="wordle-status" class="wordle-status-msg"></span>
+              <button id="wordle-new-btn" class="btn btn-primary btn-sm"><i data-lucide="refresh-cw"></i> New Word</button>
+            </div>
+            <!-- 6×5 guess board -->
+            <div class="wordle-board" id="wordle-board"></div>
+            <!-- On-screen keyboard -->
+            <div class="wordle-keyboard" id="wordle-keyboard">
+              <div class="wkey-row">
+                <button class="wkey" data-k="Q">Q</button><button class="wkey" data-k="W">W</button>
+                <button class="wkey" data-k="E">E</button><button class="wkey" data-k="R">R</button>
+                <button class="wkey" data-k="T">T</button><button class="wkey" data-k="Y">Y</button>
+                <button class="wkey" data-k="U">U</button><button class="wkey" data-k="I">I</button>
+                <button class="wkey" data-k="O">O</button><button class="wkey" data-k="P">P</button>
+              </div>
+              <div class="wkey-row">
+                <button class="wkey" data-k="A">A</button><button class="wkey" data-k="S">S</button>
+                <button class="wkey" data-k="D">D</button><button class="wkey" data-k="F">F</button>
+                <button class="wkey" data-k="G">G</button><button class="wkey" data-k="H">H</button>
+                <button class="wkey" data-k="J">J</button><button class="wkey" data-k="K">K</button>
+                <button class="wkey" data-k="L">L</button>
+              </div>
+              <div class="wkey-row">
+                <button class="wkey wkey-wide" data-k="ENTER">ENTER</button>
+                <button class="wkey" data-k="Z">Z</button><button class="wkey" data-k="X">X</button>
+                <button class="wkey" data-k="C">C</button><button class="wkey" data-k="V">V</button>
+                <button class="wkey" data-k="B">B</button><button class="wkey" data-k="N">N</button>
+                <button class="wkey" data-k="M">M</button>
+                <button class="wkey wkey-wide" data-k="BACKSPACE">⌫</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
 
   <!-- Footer -->
   <footer class="footer">
